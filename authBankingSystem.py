@@ -1,9 +1,13 @@
-#Initializing the system
+#Inializing the system
 import random
+import validation
+import database
+from getpass import getpass
+
 from datetime import datetime
 now = datetime.now()
 
-database = {} #dictionary
+
 
 def init():
     print("******** Welcome to Bank Python ******** ")
@@ -25,16 +29,26 @@ def login(): #Needs account number and password
 
     print("******** Login ********  \n")
 
-    userAccountNumber = int(input("What is your account number? \n"))
-    password = input("What is your password? \n")
+    userAccountNumber = (input("What is your account number? \n"))
 
-    for accountNumber, userDetails in database.items():
-        if(accountNumber == userAccountNumber):
-            if(userDetails[3]== password):
-                bankOperation(userDetails)
+    isValidAccountNumber = validation.accountNumberValidation(userAccountNumber)
 
-    print("Invalid account number or password\n Remember! You must have a REGISTERED account")
-    login()
+    if isValidAccountNumber: 
+
+        password = getpass("What is your password \n")
+
+        user = database.authUser(userAccountNumber, password)
+        
+        if user:
+            database.authCreate(user)
+            bankOperation(user)
+
+        print("Invalid account number or password\n Remember! You must have a REGISTERED account")
+        login()
+    
+    else:
+        print("Account Number Invaild: check that you have 10 digits and only intergers")
+        init()
     
 
 def register(): #Collecting First and Last Name, Email and Password
@@ -44,92 +58,113 @@ def register(): #Collecting First and Last Name, Email and Password
     email = input("What is your email address? \n")
     firstName = input("What is your first name? \n")
     lastName = input("What is your last name? \n")
-    password = input("What would you like your password to be? \n")
+    password = getpass("What would you like your password to be? \n")
 
     accountNumber = getAccountNumber()
 
-    database[accountNumber] = [firstName, lastName, email, password ]
+    isUserCreated = database.create(accountNumber, firstName,  lastName, email,  password, {"Balance" : 0})
 
-    print("Your account has been created \n")
-    print("Your accout number is: %d \n" % accountNumber)
+    if isUserCreated:
+        print("Your account has been created \n")
+        print("Your accout number is: %d \n" % accountNumber)
 
-    login()
+        login()
+    else: 
+        print("Something went wrong, please try again")
+        register()
+
+
 
 def bankOperation(user): #Provides bank operations
 
     print("******** Welcome %s %s ********" % (user[0], user[1]))
-    balance = 70.50
-    print("Your starting balance is $%d" % balance)
+
     
     selectedOption = int(input("What would you like to do?\n[1] Deposit\n[2] Withdraw\n[3] Report Complaint\n[4] Logout\n[5] Exit\n"))
      
     if(selectedOption == 1):
-        depositOperation(balance)
+        depositOperation(user)
     elif(selectedOption == 2):
-        withdrawlOperation(balance)
+        withdrawlOperation(user)
     elif(selectedOption == 3):
-        complain()
+        complain(user)
     elif(selectedOption == 4):
-        logout()
+        logout(user)
     elif(selectedOption == 5):
         exit()
     else: 
         print("Invalid Option")
         bankOperation(user)
 
-def depositOperation(balance): 
+def depositOperation(user): 
+
     confirmDeposit = int(input('\n Would you like to continue with your Deposit?\n[1] Continue with Deposit\n[2] Logout\n[3] Exit\n'))
     if(confirmDeposit == 1):
-        depAmount = int(input("How much would you like to deposit?\n"))
-        balance += depAmount
-        print('Updated Balance: %d \n Thank you. Have a Nice Day!' % balance)
-        exit()
+        print(f"You have ${user['Balance']} in your account")
+        while True:
+            amountDeposit = input("How much would you like to deposit? \n")
+            if validation.isNumber(amountDeposit):
+                amountDeposit = float(amountDeposit)
+                break
+                
+        user["Balance"] = user["Balance"] + amountDeposit
+        database.update(user)
+        print(f"Your new balance is ${user['Balance']}")
     elif(confirmDeposit == 2):
-        logout()
+        logout(user)
     elif(confirmDeposit == 3):
         exit()
     else:
         print("Invalid Option")
-        depositOperation(balance)
+        depositOperation(user)
 
-def withdrawlOperation(balance):
+def withdrawlOperation(user):
+
     confirmWithdrawl = int(input('Would you like to continue with your Withdrawl?\n[1] Continue with Withdrawl\n[2] Logout\n[3] Exit\n'))
     if(confirmWithdrawl == 1):
-        witAmount = int(input("How much would you like to withdraw?\n "))
-        if(witAmount > balance):
-            print("Insufficient Funds")
-            exit()
-        elif(witAmount <= balance):
-            balance -= witAmount
-            print('Amount Withdrawn: %d' % witAmount)
-            print("Your remaining balance is %d\nThank you, Have a Nice Day" % balance)
-            exit()
+         print(f"You have ${user['Balance']} in your account")
+
+    while True:
+        amountWithdrawn = input("How much would you like to withdraw? \n")
+        if validation.isNumber(amountWithdrawn):
+            amountWithdrawn = float(amountWithdrawn)
+            break
+
+    if(amountWithdrawn <= user["Balance"]):
+        user["Balance"] = user["Balance"] - amountWithdrawn
+        database.update(user)
+        print(f"Take your cash. Your new balance is ${user['Balance']}")
+        
+    elif(amountWithdrawn > user["Balance"]):
+        print(f"You do not have enough money in your account for this withdrawal, please select a number smaller than {user['Balance']}")
+        withdrawlOperation(user)
     elif(confirmWithdrawl == 2):
-        logout()
+        logout(user)
     elif(confirmWithdrawl == 3):
         exit()
     else:
         print("Invalid Option")
-        withdrawlOperation(balance)
+        withdrawlOperation(user)
     
-def complain():
+def complain(user):
     confirmComplaint = int(input('Would you like to continue with your Complaint?\n[1] Continue with Complaint\n[2] Logout\n[3] Exit\n'))
     if(confirmComplaint == 1):
         complaint = input('What is the issue you would like to report?\n')
         print('You have stated " %s " \nThank you for contacting us, we will get back to you within 24 hours about the issue you have reported.' % complaint)
         exit()
     elif(confirmComplaint == 2):
-        logout()
+        logout(user)
     elif(confirmComplaint == 3):
         exit()
     else:
         print('Invalid Option')      
-        complain()      
+        complain(user)      
                 
 def getAccountNumber(): #Provides account number to register function
     return random.randrange(1111111111,9999999999)
 
-def logout():
+def logout(user):
+    database.authDelete(user)
     login()
 
 ### ACTUAL BANKING SYSTEM ###
